@@ -1,0 +1,13 @@
+toc:
+  - filepath: "introduction.md"
+    children:
+      - filepath: "aws_catalog.md"
+      - filepath: "azure_catalog.md"
+      - filepath: "gcp_catalog.md"
+      - filepath: "oci_catalog.md"
+metadata:
+  - key: "ft:originId"
+    value: "DisoveryCatalog"
+  - key: "ft:title"
+    value: "Cortex Cloud Discovery Catalog"
+
