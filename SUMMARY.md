@@ -1,7 +1,7 @@
 # Table of contents
 
 * [README](README.md)
-* [1. Plan and Prepare Your Cortex XSIAM Deployment](<# 1.md>)
+* [Plan and Prepare Your Cortex XSIAM Deployment](<# 1.md>)
 * [10. Access Management: RBAC and SBAC](10_Access_Management_RBAC_and_SBAC.md)
 * [11. Dashboards and Reports](11_Dashboards_and_Reports.md)
 * [12. Glossary of Terms](12_Glossary_of_Terms.md)
@@ -14,4 +14,3 @@
 * [7. Data Sources and Content Management](7_Data_Sources_and_Content_Management.md)
 * [8. Post-Deployment and Maintenance](8_Post-Deployment_and_Maintenance.md)
 * [9. Remote Repository for Content Development](9_Remote_Repository_for_Content_Development.md)
-* [onboardx5](onboardx5.md)
