@@ -1,7 +1,7 @@
 # Table of contents
 
 * [README](README.md)
-* [Plan and Prepare Your Cortex XSIAM Deployment](<# 1.md>)
+* [Plan and Prepare Your Cortex XSIAM Deployment](plan-and-prepare-your-cortex-xsiam-deployment.md)
 * [10. Access Management: RBAC and SBAC](10_Access_Management_RBAC_and_SBAC.md)
 * [11. Dashboards and Reports](11_Dashboards_and_Reports.md)
 * [12. Glossary of Terms](12_Glossary_of_Terms.md)
