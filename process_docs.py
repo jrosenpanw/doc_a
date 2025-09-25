@@ -10,21 +10,23 @@ def sanitize_filename(name):
     name = re.sub(r'^[#\s]+', '', name).strip()
     name = re.sub(r'[^\w\s-]', '', name).strip().lower()
     name = re.sub(r'[-\s]+', '-', name)
+    # Also handle removing .docx extension for directory names
+    name, _ = os.path.splitext(name)
     return name
 
 # --- CORE LOGIC: CHUNK MODE ---
 
 def chunk_docx_to_files(docx_path, output_dir, split_level=2):
     """
-    Converts a DOCX file to Markdown and splits it into multiple files
-    based on headings. (Mode 1)
+    Converts a single DOCX file to Markdown and splits it into multiple files
+    based on headings.
     """
-    print(f"🚀 Running in CHUNK mode: DOCX -> Multiple Markdown files.")
     try:
+        base_doc_name = os.path.basename(docx_path)
+        print(f"📄 Processing document: '{base_doc_name}'")
+        
         os.makedirs(output_dir, exist_ok=True)
-        print(f"🔄 Converting '{os.path.basename(docx_path)}' to Markdown in memory...")
         markdown_content = pypandoc.convert_file(docx_path, 'markdown', format='docx')
-        print("✅ In-memory conversion complete.")
 
         heading_pattern = f"^(?={'#' * split_level}\s)"
         chunks = re.split(heading_pattern, markdown_content, flags=re.MULTILINE)
@@ -33,7 +35,6 @@ def chunk_docx_to_files(docx_path, output_dir, split_level=2):
             intro_path = os.path.join(output_dir, "000-introduction.md")
             with open(intro_path, 'w', encoding='utf-8') as f:
                 f.write(chunks[0])
-            print(f"📄 Created introduction file: '{intro_path}'")
         
         file_counter = 1
         for chunk in chunks[1:]:
@@ -45,14 +46,16 @@ def chunk_docx_to_files(docx_path, output_dir, split_level=2):
             output_path = os.path.join(output_dir, filename)
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(chunk)
-            print(f"📄 Created chunk file: '{filename}'")
             file_counter += 1
 
-        print(f"\n🎉 Successfully chunked document into {file_counter - 1} files in '{output_dir}'")
+        print(f"✅ Finished '{base_doc_name}', created {file_counter - 1} chunk files.")
     except OSError:
         print(f"❌ Error: Pandoc not found. Please ensure Pandoc is installed and in your system's PATH.")
+        return False
     except Exception as e:
-        print(f"❌ An error occurred during chunking: {e}")
+        print(f"❌ An error occurred while processing {base_doc_name}: {e}")
+        return False
+    return True
 
 # --- CORE LOGIC: MERGE MODE ---
 
@@ -68,15 +71,13 @@ def merge_markdown_to_file(source_dir, output_file):
             if filename.lower().endswith(".md"):
                 markdown_files.append(os.path.join(dirpath, filename))
     
-    markdown_files.sort() # Sort alphabetically to ensure consistent order
+    markdown_files.sort()
 
     try:
         with open(output_file, "w", encoding="utf-8") as outfile:
             print(f"✍️ Merging {len(markdown_files)} files into '{output_file}'...")
             for file_path in markdown_files:
                 relative_path = os.path.relpath(file_path, source_dir)
-                
-                # This header is CRITICAL for the LLM. It provides context and traceability.
                 outfile.write(f"---\n")
                 outfile.write(f"Source File: {relative_path.replace(os.sep, '/')}\n")
                 outfile.write(f"---\n\n")
@@ -84,7 +85,7 @@ def merge_markdown_to_file(source_dir, output_file):
                 with open(file_path, "r", encoding="utf-8") as infile:
                     outfile.write(infile.read())
                 
-                outfile.write("\n\n") # Add space before the next file's header
+                outfile.write("\n\n")
         print(f"\n🎉 Successfully merged all files into '{output_file}'")
     except Exception as e:
         print(f"❌ An error occurred during merging: {e}")
@@ -93,8 +94,8 @@ def merge_markdown_to_file(source_dir, output_file):
 
 def process_documentation(source_dir, output_path):
     """
-    Inspects the source directory and decides whether to run in
-    CHUNK or MERGE mode.
+    Inspects the source directory and decides which mode to run.
+    Now supports multiple DOCX files.
     """
     print(f"📂 Inspecting source directory: '{source_dir}'")
     if not os.path.isdir(source_dir):
@@ -107,18 +108,29 @@ def process_documentation(source_dir, output_path):
     print(f"🔍 Found {len(docx_files)} DOCX file(s) and {len(md_files)} Markdown file(s).")
 
     # --- Mode Decision Logic ---
-    if len(docx_files) == 1 and not md_files:
-        # Case 1: Single DOCX found. Run CHUNK mode.
-        # Output should be a directory.
-        if os.path.splitext(output_path)[1]: # Check if output_path looks like a file
+    if len(docx_files) > 0 and not md_files:
+        # Case 1: One or more DOCX files found. Run CHUNK mode for each.
+        # Output path must be a directory.
+        if os.path.splitext(output_path)[1]: 
              print("❌ Error: For CHUNK mode, the output path must be a directory, not a file.")
              return
-        chunk_docx_to_files(os.path.join(source_dir, docx_files[0]), output_path)
+        
+        print(f"🚀 Running in CHUNK mode for {len(docx_files)} document(s).")
+        total_success = 0
+        for docx_file in docx_files:
+            # Create a dedicated subdirectory for each docx file's chunks
+            doc_name = sanitize_filename(docx_file)
+            doc_output_dir = os.path.join(output_path, doc_name)
+            
+            full_docx_path = os.path.join(source_dir, docx_file)
+            if chunk_docx_to_files(full_docx_path, doc_output_dir):
+                total_success += 1
+        
+        print(f"\n🎉 Finished processing. Successfully chunked {total_success} of {len(docx_files)} documents.")
     
     elif len(md_files) > 0 and not docx_files:
         # Case 2: Markdown files found. Run MERGE mode.
-        # Output should be a file.
-        if not os.path.splitext(output_path)[1]: # Check if output_path looks like a directory
+        if not os.path.splitext(output_path)[1]:
             print("❌ Error: For MERGE mode, the output path must be a file, not a directory.")
             return
         merge_markdown_to_file(source_dir, output_path)
@@ -129,18 +141,18 @@ def process_documentation(source_dir, output_path):
     else:
         # Ambiguous State
         print("❌ Error: Ambiguous source directory. Found both DOCX and Markdown files.")
-        print("👉 Please ensure the source directory contains EITHER one '.docx' file OR multiple '.md' files, but not both.")
+        print("👉 Please ensure the source directory contains EITHER .docx file(s) OR .md file(s), but not both.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="A smart documentation processor for LLMs. Automatically chunks a DOCX or merges Markdown files.",
+        description="A smart documentation processor for LLMs. Automatically chunks DOCX files or merges Markdown files.",
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument("source_dir", help="Directory containing the source documentation.")
     parser.add_argument(
         "output_path",
         help="The output destination.\n"
-             "- For CHUNK mode (input is .docx), this is the OUTPUT DIRECTORY.\n"
+             "- For CHUNK mode (input is .docx), this is the main OUTPUT DIRECTORY.\n"
              "- For MERGE mode (input is .md), this is the OUTPUT FILE."
     )
     args = parser.parse_args()
