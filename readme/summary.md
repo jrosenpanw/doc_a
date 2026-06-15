@@ -1,6 +1,6 @@
 # Browse the reference
 
-Use this page when you want a short navigation list.
+Use this page for quick access to the main XQL reference sections.
 
 ### Start here
 
