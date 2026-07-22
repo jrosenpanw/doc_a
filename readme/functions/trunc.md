@@ -141,5 +141,5 @@ config timeframe = 1d
 ## Related articles
 
 * **Stages**: [`alter`](../stages/alter.md), [`fields`](../stages/fields.md), [`limit`](../stages/limit.md)
-* **Functions**: [`round()`](round.md), [`floor()`](floor.md), [`div()`](div.md), [`to_integer()`](to_integer.md)
+* **Functions**: [`round()`](round.md), [`floor()`](floor.md), [`to_integer()`](to_integer.md)
 * **Datasets**: [`xdr_data`](https://docs-cortex.paloaltonetworks.com/r/Cortex-XQL-Schema-Reference-Guide/Introduction)

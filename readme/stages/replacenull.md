@@ -9,62 +9,145 @@ ft:topicType: reference
 
 # replacenull
 
-Use the `replacenull` stage to ensure data completeness by replacing null values within a specified field.
+Use the `replacenull` stage to ensure data completeness by replacing null (or null-equivalent) values within a specified field with a default value. The stage is schema-aware: it uses the field's metadata type to determine which replacement value is valid, and supports both primitive types (**String**, **Number**, **Boolean**, **Enum**) and complex types (**Array**, **JSON**, **Datetime**).
 
 ## Syntax
 
 ```sql
-replacenull <field> = <text_string>
+replacenull <field> = <replacement_value>
 ```
 
 ## Parameters
 
-| Name          | Type   | Required | Description                                                                                                                |
-| ------------- | ------ | -------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `field`       | string | Yes      | The name of the field whose null values you wish to replace.                                                               |
-| `text_string` | string | Yes      | The literal string value that will replace any `NULL` occurrences in the specified field. This must be enclosed in quotes. |
+| Name                | Type                                              | Required | Description                                                                                                                                                                                                                                                                                                          |
+| ------------------- | ------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `field`             | string                                            | Yes      | The name of the field whose null (or null-equivalent) values you want to replace.                                                                                                                                                                                                                                    |
+| `replacement_value` | string, number, boolean, array, JSON, or datetime | Yes      | The value that replaces any `NULL` (or null-equivalent) occurrences in the specified field. The value must match the data type of the field. Literal strings must be enclosed in double quotes, and complex types must be constructed with the appropriate function (see [Usage notes](replacenull.md#usage-notes)). |
 
 ## Returns
 
-The `replacenull` stage returns the dataset with the specified field modified, where all `NULL` values have been substituted with the provided replacement string.
+The `replacenull` stage returns the dataset with the specified field modified, where all `NULL` (and null-equivalent) values have been substituted with the provided replacement value. All other records and fields are returned unchanged.
 
 ## Usage notes
 
-* If you employ the `replacenull` stage, any subsequent stages that refer to the modified field's value must use the newly defined replacement string instead of checking for `NULL`.
+* The `replacenull` stage is schema-aware. It reads the field's metadata type before applying the replacement logic, so the `replacement_value` you provide must be compatible with the field's data type.
+*   The stage supports the following field types, each with its own replacement rules:
+
+    | Field type   | Null-equivalent condition      | How to specify the replacement value                                                     |
+    | ------------ | ------------------------------ | ---------------------------------------------------------------------------------------- |
+    | **String**   | `NULL`                         | A quoted string literal, for example `"invalid host"`.                                   |
+    | **Number**   | `NULL`                         | A numeric literal, for example `0`.                                                      |
+    | **Boolean**  | `NULL`                         | `true` or `false`.                                                                       |
+    | **Enum**     | `NULL`                         | A valid enum value.                                                                      |
+    | **Array**    | `NULL` **or** empty array `[]` | An array constructed with `arraycreate()`, for example `arraycreate("no-record")`.       |
+    | **JSON**     | `NULL`                         | A JSON object, typically an empty object `{}` or one constructed with `object_create()`. |
+    | **Datetime** | `NULL`                         | A quoted datetime string in a supported format (see below).                              |
+* **Empty array detection:** For **Array** fields, both `NULL` values and empty arrays (`[]`) are treated as null-equivalent and are replaced.
+* **Datetime formats:** For **Datetime** fields, the replacement value must be provided as a quoted string in one of the following supported formats:
+  * ISO 8601 with `Z`: `%Y-%m-%dT%H:%M:%SZ` (for example, `"1970-01-01T00:00:00Z"`)
+  * ISO 8601 without `Z`: `%Y-%m-%dT%H:%M:%S` (for example, `"1970-01-01T00:00:00"`)
+  * Standard format: `%Y-%m-%d %H:%M:%S` (for example, `"1970-01-01 00:00:00"`)
+* If you employ the `replacenull` stage, any subsequent stages that refer to the modified field's value must use the newly defined replacement value instead of checking for `NULL`.
 * Apply `filter` stages as early as possible in your query. This reduces the total dataset size before `replacenull` processes the records, minimizing the amount of data it needs to operate on.
-* Utilize the `fields` stage immediately after initial filtering to select only the necessary columns. This reduces the data footprint passed to `replacenull` and subsequent stages, improving overall query performance.
+* Use the `fields` stage immediately after initial filtering to select only the necessary columns. This reduces the data footprint passed to `replacenull` and subsequent stages, improving overall query performance.
 
 ## Examples
 
-### Example 1: Basic replacenull on an existing field with nulls
+### Example 1: Basic replacenull on a String field
 
-**Goal**: Replace `NULL` values in a field that inherently contains them in the dataset.
+**Goal**: Replace `NULL` values in a primitive **String** field with a default label.
 
 **XQL code**:
 
 ```sql
-config timeframe = 1d // Use a practical timeframe
-| dataset = sample_xql_raw // Specify the dataset
-| fields event_id, ipv6_address // Select only necessary fields early
-| replacenull ipv6_address = "Not Applicable" // Replace NULL values in ipv6_address
-| limit 5 // Limit results for brevity
+dataset = xdr_data
+| comp count() as count by agent_hostname
+| replacenull agent_hostname = "invalid host"
+| limit 100
 ```
 
-**Explanation**: The `replacenull ipv6_address = "Not Applicable"` stage replaces `NULL` values in the `ipv6_address` field with the string "Not Applicable" for records 101, 102, 104, and 105.
+**Explanation**: The `replacenull agent_hostname = "invalid host"` stage replaces any `NULL` values in the `agent_hostname` field with the string "invalid host".
 
 **Output**:
 
-| EVENT\_ID | IPV6\_ADDRESS  |
-| --------- | -------------- |
-| 101       | Not Applicable |
-| 102       | Not Applicable |
-| 103       | 2001:0db8::1   |
-| 104       | Not Applicable |
-| 105       | Not Applicable |
+| COUNT | AGENT\_HOSTNAME |
+| ----- | --------------- |
+| 42    | server-01       |
+| 15    | invalid host    |
+| 7     | server-03       |
 
-### Example 2: replacenull on a field derived from a JSON function
+### Example 2: replacenull on an Array field (empty arrays and nulls)
 
-**Goal**: Replace `NULL` values in a field created by an `alter` stage using a JSON function, where the extracted value might be `NULL` if the key does not exist.
+**Goal**: Replace both `NULL` values and empty arrays (`[]`) in an **Array** field with a default array.
+
+**XQL code**:
+
+```sql
+dataset = xdr_data
+| fields host, dns_records
+| replacenull dns_records = arraycreate("no-record")
+| limit 100
+```
+
+**Explanation**: Because `dns_records` is an **Array** field, both `NULL` values and empty arrays are treated as null-equivalent. The `replacenull dns_records = arraycreate("no-record")` stage replaces those values with the array `["no-record"]`.
+
+**Before `replacenull`**:
+
+| HOST      | DNS\_RECORDS                         |
+| --------- | ------------------------------------ |
+| server-01 | `["a.example.com", "b.example.com"]` |
+| server-02 | `null`                               |
+| server-03 | `[]`                                 |
+
+**After `replacenull`**:
+
+| HOST      | DNS\_RECORDS                         |
+| --------- | ------------------------------------ |
+| server-01 | `["a.example.com", "b.example.com"]` |
+| server-02 | `["no-record"]`                      |
+| server-03 | `["no-record"]`                      |
+
+### Example 3: Type-specific replacements across multiple field types
+
+**Goal**: Apply `replacenull` to several fields of different types — **String**, **Number**, **Datetime**, and **JSON** — in a single query, using a replacement value appropriate to each type.
+
+**XQL code**:
+
+```sql
+dataset = xdr_data
+| replacenull host = "N/A"
+| replacenull severity = 0
+| replacenull event_time = "1970-01-01T00:00:00Z"
+| replacenull metadata = object_create("env", "dev")
+| limit 100
+```
+
+**Explanation**: Each `replacenull` stage targets a field of a specific type:
+
+* `host` (String) — `NULL` values are replaced with `"N/A"`.
+* `severity` (Number) — `NULL` values are replaced with `0`.
+* `event_time` (Datetime) — `NULL` values are replaced with the ISO 8601 datetime `"1970-01-01T00:00:00Z"`.
+* `metadata` (JSON) — `NULL` values are replaced with the object `{"env": "dev"}` constructed by `object_create()`.
+
+**Before `replacenull`**:
+
+| HOST      | SEVERITY | EVENT\_TIME            | METADATA          |
+| --------- | -------- | ---------------------- | ----------------- |
+| server-01 | `null`   | `2026-03-24T10:30:00Z` | `null`            |
+| `null`    | 5        | `null`                 | `{"env": "prod"}` |
+| `null`    | `null`   | `null`                 | `{}`              |
+
+**After `replacenull`**:
+
+| HOST      | SEVERITY | EVENT\_TIME            | METADATA          |
+| --------- | -------- | ---------------------- | ----------------- |
+| server-01 | 0        | `2026-03-24T10:30:00Z` | `{"env": "dev"}`  |
+| N/A       | 5        | `1970-01-01T00:00:00Z` | `{"env": "prod"}` |
+| N/A       | 0        | `1970-01-01T00:00:00Z` | `{}`              |
+
+### Example 4: replacenull on a field derived from a JSON function
+
+**Goal**: Replace `NULL` values in a field created by an `alter` stage using a JSON function, where the extracted value can be `NULL` if the key does not exist.
 
 **XQL code**:
 
@@ -72,7 +155,7 @@ config timeframe = 1d // Use a practical timeframe
 config timeframe = 1d
 | dataset = sample_xql_raw
 | fields event_id, simple_json_data // Select relevant fields, including the JSON source
-| alter json_code = json_extract_scalar(simple_json_data, "$.code") // Extract 'code' field; can be NULL
+| alter json_code = json_extract_scalar(simple_json_data, "$.code") // Extract 'code'; can be NULL
 | replacenull json_code = "Code Not Found" // Replace NULLs in the new 'json_code' field
 | limit 5
 ```
@@ -89,9 +172,9 @@ config timeframe = 1d
 | 104       | {"health": "good"}                                | Code Not Found |
 | 105       | {"transform\_stage": 1}                           | Code Not Found |
 
-### Example 3: Filtering based on the replaced value
+### Example 5: Filtering based on the replaced value
 
-**Goal**: Demonstrate how subsequent `filter` stages must use the replacement string when querying for values that were originally `NULL`.
+**Goal**: Demonstrate how subsequent `filter` stages must use the replacement value when querying for values that were originally `NULL`.
 
 **XQL code**:
 
@@ -100,7 +183,7 @@ config timeframe = 1d
 | dataset = sample_xql_raw
 | fields event_id, ipv4_address // Select necessary fields
 | replacenull ipv4_address = "UNKNOWN_IP" // Replace NULLs in ipv4_address
-| filter ipv4_address = "UNKNOWN_IP" // Filter using the replacement string
+| filter ipv4_address = "UNKNOWN_IP" // Filter using the replacement value
 | limit 5
 ```
 
@@ -116,6 +199,5 @@ config timeframe = 1d
 
 ## Related articles
 
-* **Stages**: [`alter`](alter.md), [`filter`](filter.md), [`fields`](fields.md)
-* **Functions**: [`json_extract_scalar`](../functions/json_extract_scalar.md)
-* **Datasets**: [`xdr_data`](https://www.google.com/search?q=%5Bhttps://docs-cortex.paloaltonetworks.com/r/Cortex-XQL-Schema-Reference-Guide/Introduction%5D\(https://docs-cortex.paloaltonetworks.com/r/Cortex-XQL-Schema-Reference-Guide/Introduction\))
+* **Stages**: `alter`, `filter`, `fields`, `comp`
+* **Functions**: `arraycreate`, `object_create`, `json_extract_scalar`, `coalesce`

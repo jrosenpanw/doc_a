@@ -9,7 +9,13 @@ ft:topicType: reference
 
 # pivot
 
-Use the `pivot` stage to rotate row-level data into columns. The stage applies one or more aggregation functions to a specified field and transposes the distinct values of a pivot column (specified in the `FOR` / `IN` clause) into new output columns. This is useful for transforming long-format data into a wide-format summary, making it easier to compare values side by side.
+Use the `pivot` stage to rotate row-level data into columns, aligning with BigQuery's native `PIVOT` operator. The Pivot stage applies one or more aggregation functions to a specified field and transposes the distinct values of a pivot column (specified in the `FOR` / `IN` clause) into new output columns. This is useful for transforming long-format data into a wide-format summary, making it easier to compare values side by side.
+
+The `pivot` stage transforms row-oriented data into a columnar summary by:
+
+1. Selecting a column whose distinct values become new column headers (the **pivot key**, specified in the `IN` clause).
+2. Applying one or more **aggregate functions** to compute the values that populate those new columns.
+3. Optionally grouping the remaining rows by a **by** clause to produce one output column per group.
 
 ## Syntax
 
@@ -20,13 +26,13 @@ pivot <aggregation_function>(<field>)[, <aggregation_function2>(<field2>), ...] 
 
 ## Parameters
 
-| Name                   | Type     | Required | Description                                                                                                                                                                                                                                                                                                    |
-| ---------------------- | -------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `aggregation_function` | function | Yes      | The aggregation function to apply to the target field. Allowed functions: `count`, `sum`, `avg`, `min`, `max`, `count_distinct`, `approx_count`, `var`, `stddev_sample`, `stddev_population`, `approx_quantities`, `list`. A maximum of **3** aggregation functions can be used within a single `pivot` stage. |
-| `field`                | string   | Yes      | The name of the field whose values are aggregated.                                                                                                                                                                                                                                                             |
-| `pivot_column`         | string   | Yes      | The field (specified after `for`) whose distinct values become the new column names in the output. Must resolve to a **primitive data type** — JSON fields and Records cannot be used as the pivot key (see [Limitations](pivot.md#limitations)).                                                              |
-| `value1, value2, ...`  | string   | Yes      | A comma-separated list of quoted values from the `pivot_column` that define which new columns to create. Each value becomes a separate column in the result. A maximum of **10** values can be specified in the `IN` clause.                                                                                   |
-| `group_field`          | string   | No       | One or more fields specified after `by` that group the output rows. When the `by` clause is used, the total resulting group columns are capped to **5** values. If omitted, the output consists only of the aggregated data across the `IN` values.                                                            |
+| Name                   | Type     | Required | Description                                                                                                                                                                                                                                                                                                                                                                          |
+| ---------------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `aggregation_function` | function | Yes      | The aggregation function to apply to the target field. Allowed functions: `count`, `sum`, `avg`, `min`, `max`, `count_distinct`, `approx_count`, `var`, `stddev_sample`, `stddev_population`, `approx_quantiles`, `list`. A maximum of **3** aggregation functions can be used within a single `pivot` stage. The allowed aggregation functions are subject to tenant configuration. |
+| `field`                | string   | Yes      | The name of the field whose values are aggregated.                                                                                                                                                                                                                                                                                                                                   |
+| `pivot_column`         | string   | Yes      | The field (specified after `for`) whose distinct values become the new column names in the output. Must resolve to a **primitive data type** — JSON fields and Records cannot be used as the pivot key (see [Limitations](pivot.md#limitations)).                                                                                                                                    |
+| `value1, value2, ...`  | string   | Yes      | A comma-separated list of quoted values from the `pivot_column` that define which new columns to create. Each value becomes a separate column in the result. A maximum of **10** values can be specified in the `IN` clause.                                                                                                                                                         |
+| `group_field`          | string   | No       | One or more fields specified after `by` that group the output rows. When the `by` clause is used, the total resulting group columns are capped to **5** values. If omitted, the output consists only of the aggregated data across the `IN` values.                                                                                                                                  |
 
 ## Returns
 
@@ -51,12 +57,14 @@ The `pivot` stage returns a transformed dataset where:
 
 ## Limitations
 
-| Feature              | Constraint / Behavior                                                                                                                                                |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Max Aggregations** | 3 functions per `pivot` stage. When multiple aggregations are used, column names are auto-generated (for example, `sum_1_NETWORK`).                                  |
-| **Max Pivot Values** | 10 values in the `IN` clause.                                                                                                                                        |
-| **Optional BY**      | If the `by` clause is omitted, the output returns aggregate data only. When used, the `by` clause is limited to 5 group values.                                      |
-| **Data Types**       | Primitive types only for the pivot key. JSON fields and Records cannot be used as the pivot key — they must be cast to `STRING` in a previous stage as a workaround. |
+The following constraints apply to the `pivot` stage.
+
+| Feature              | Constraint / Behavior                                                                                                                                                                                                            |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Max Aggregations** | 3 functions per `pivot` stage. When multiple aggregations are used, column names are auto-generated (for example, `sum_1_NETWORK`).                                                                                              |
+| **Max Pivot Values** | 10 values in the `IN` clause. This threshold prevents "wide table" performance degradation and avoids exceeding BigQuery column limits.                                                                                          |
+| **Optional BY**      | If the `by` clause is omitted, the output returns aggregate data only. When used, the `by` clause is limited to 5 group values to ensure query stability.                                                                        |
+| **Data Types**       | Primitive types only for the pivot key. The `FOR` expression must resolve to a primitive data type. JSON fields and Records cannot be used as the pivot key — they must be cast to `STRING` in a previous stage as a workaround. |
 
 > **Note:** Not all XQL aggregation functions are supported in `pivot`. Functions such as `first`, `last`, `least`, and `median` are **not** supported. See the [Parameters](pivot.md#parameters) section for the full list of allowed aggregation functions.
 
@@ -72,7 +80,7 @@ The `pivot` stage returns a transformed dataset where:
 
 ## Examples
 
-### Example 1: Basic Pivot — Single Aggregation with BY Clause
+### Example 1: Basic Pivot — Single aggregation using the BY clause
 
 **Goal**: Sum bytes transferred per host, pivoted across event types.
 
@@ -109,7 +117,7 @@ dataset = xdr_data
 | `EVENT_LOG` | 4096    | 768    | 128     |
 | `INJECTION` | 2048    | `null` | 64      |
 
-### Example 2: Pivot Without BY Clause
+### Example 2: Pivot without a BY clause
 
 **Goal**: Count events by type without grouping by any other field.
 
@@ -124,13 +132,22 @@ dataset = xdr_data
 
 **Explanation**: When the `by` clause is omitted, the output contains only the aggregated data across the `IN` values — a single row with one column per pivot value.
 
+**Before `pivot`:**
+
+| event\_type | `count(event_type)` |
+| ----------- | ------------------- |
+| `NETWORK`   | 5420                |
+| `FILE`      | 1893                |
+| `PROCESS`   | 3102                |
+| `REGISTRY`  | 764                 |
+
 **Output:**
 
 | NETWORK | FILE | PROCESS | REGISTRY |
 | ------- | ---- | ------- | -------- |
 | 5420    | 1893 | 3102    | 764      |
 
-### Example 3: Using Pivoted Columns in Subsequent Stages
+### Example 3: Using pivoted columns in subsequent stages
 
 **Goal**: Pivot event counts by host, then filter and sort the results.
 
@@ -164,7 +181,7 @@ dataset = xdr_data
 | `host-alpha`    | 250     | 80   | 410     |
 | `host-beta`     | 150     | 42   | 310     |
 
-### Example 4: Multiple Aggregations in a Single Pivot
+### Example 4: Multiple aggregations in a single pivot
 
 **Goal**: Use two aggregate functions — `sum` and `max` — in one pivot statement.
 
@@ -197,7 +214,7 @@ dataset = xdr_data
 | `host-alpha` | 4096            | 1280         | 3072            | 768          |
 | `host-beta`  | 2048            | 256          | 2048            | 256          |
 
-### Example 5: Pivot with Two BY Fields
+### Example 5: Pivot with two BY fields
 
 **Goal**: Group the pivoted output by two fields to produce a more granular breakdown.
 
@@ -235,5 +252,5 @@ dataset = xdr_data
 
 ## Related articles
 
-* **Stages**: [`comp`](comp.md), [`fields`](fields.md), [`filter`](filter.md), [`transpose`](../../Cortex_XQL_Command_Reference/Q4/transpose.md)
-* **Functions**: [`count`](../functions/count_with_windowcomp_stage.md), [`sum`](../functions/sum_with_comp_stage.md), [`min`](../functions/min_with_comp_stage.md), [`max`](../functions/max_with_comp_stage.md)
+* **Stages**: `comp`, `fields`, `filter`, `transpose`
+* **Functions**: `count`, `sum`, `min`, `max`

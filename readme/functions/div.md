@@ -5,6 +5,7 @@ Category: Reference Guide
 Product_Category: Cortex XQL
 ft:lang: en-US
 ft:topicType: reference
+hidden: true
 ---
 
 # div

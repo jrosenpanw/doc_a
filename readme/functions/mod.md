@@ -36,7 +36,6 @@ mod(<dividend>, <divisor>)
 * **Division by Zero**: If the `divisor` is zero, the function returns `null` or raises an error.
 * **Null Handling**: If either input expression is `null`, the function returns `null`.
 * **Sign of Result**: The sign of the result matches the sign of the `dividend`.
-* **Relationship to div()**: `dividend = div(dividend, divisor) * divisor + mod(dividend, divisor)`.
 * **Common Use Cases**: This function is typically used within the `alter` stage for cyclic calculations, even/odd detection, bucketing, time-based grouping (for example, grouping by hour of day), and hash-based distribution.
 
 ## Examples
@@ -116,5 +115,5 @@ config timeframe = 1d
 ## Related articles
 
 * **Stages**: [`alter`](../stages/alter.md), [`fields`](../stages/fields.md), [`limit`](../stages/limit.md)
-* **Functions**: [`div()`](div.md), [`divide()`](divide.md), [`multiply()`](multiply.md), [`if()`](if.md)
+* **Functions**: [`divide()`](divide.md), [`multiply()`](multiply.md), [`if()`](if.md)
 * **Datasets**: [`xdr_data`](https://docs-cortex.paloaltonetworks.com/r/Cortex-XQL-Schema-Reference-Guide/Introduction)

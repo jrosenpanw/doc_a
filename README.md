@@ -61,7 +61,6 @@ XQL queries are composed of **stages** connected in a pipeline, with **functions
 | [`csc`](readme/functions/csc.md)                                                                | Calculate the cosecant of a numeric value specified in radians                                                 |
 | [`current_time`](readme/functions/current_time.md)                                              |                                                                                                                |
 | [`date_floor`](readme/functions/date_floor.md)                                                  |                                                                                                                |
-| [`div`](readme/functions/div.md)                                                                | Perform integer division of two numeric values                                                                 |
 | [`divide`](readme/functions/divide.md)                                                          |                                                                                                                |
 | [`earliest`](readme/functions/earliest.md)                                                      |                                                                                                                |
 | [`euclidean_distance`](readme/functions/euclidean_distance.md)                                  | Calculate the Euclidean distance between two numeric vectors                                                   |
