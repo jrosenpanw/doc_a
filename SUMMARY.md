@@ -175,6 +175,7 @@
     * [preset](readme/stages/presets.md)
     * [replacenull](readme/stages/replacenull.md)
     * [search](readme/stages/search.md)
+    * [search](readme/stages/search-1.md)
     * [sort](readme/stages/sort.md)
     * [tag](readme/stages/tag.md)
     * [target](readme/stages/target.md)
