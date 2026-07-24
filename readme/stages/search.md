@@ -1,12 +1,3 @@
----
-ft:title: "search"
-Product: "Cortex"
-Category: "Reference Guide"
-Product_Category: "Cortex XQL"
-ft:lang: "en-US"
-ft:topicType: "reference"
----
-
 # search
 
 Use the `search` stage to perform free-text string searching across your ingested data, allowing you to find specified text strings within fields of single or multiple datasets.
@@ -14,15 +5,26 @@ Use the `search` stage to perform free-text string searching across your ingeste
 ## Syntax
 
 ```sql
-search "<free_text1>"[,"<free_text2>", ...] [dataset = <dataset name>]
+search "<free_text1>"[,"<free_text2>", ...] [mode="<search_mode>"] [dataset = <dataset name>]
 ```
 
 ## Parameters
 
-| Name          | Type    | Required | Description                                                            |
-| ------------- | ------- | -------- | ---------------------------------------------------------------------- |
-| `<free_text>` | string  | Yes      | The text string to search for. Multiple strings imply an OR condition. |
-| `dataset`     | dataset | No       | Refines the search by explicitly specifying a dataset.                 |
+| Name          | Type    | Required | Description                                                                                                                                                                                                                                                                              |
+| ------------- | ------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<free_text>` | string  | Yes      | The text string to search for. Multiple strings imply an OR condition.                                                                                                                                                                                                                   |
+| `mode`        | string  | No       | Scopes the investigation to route execution. Scoping the query accelerates response times for complex queries and provides granular control over the query. Accepted values are `raw`, `normalize`, and `all`. Syntax: `mode="search_mode"`. See [Search modes](search.md#search-modes). |
+| `dataset`     | dataset | No       | Refines the search by explicitly specifying a dataset.                                                                                                                                                                                                                                   |
+
+### Search modes
+
+The `mode` parameter accepts the following values:
+
+| Mode        | Description                                                                                                                                                            |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `raw`       | Searches across all columns in raw datasets. This is the default mode for general and wildcard searches.                                                               |
+| `normalize` | Restricts the search to normalized datasets (such as `xdr_data`). For maximum performance, this mode searches string columns only and explicitly bypasses enum fields. |
+| `all`       | Searches across all datasets in the tenant. This is the legacy behavior.                                                                                               |
 
 ## Returns
 
@@ -35,6 +37,33 @@ The `search` stage returns records containing the specified text string(s). When
 * Queries using the `search` stage are limited to the last 90 days of data.
 * By default, forensic datasets are not included in `search` stage queries unless specifically enabled.
 * If searching multiple datasets, the `raw_data` field column contains the JSON with the relevant raw information, allowing for drill-down.
+* **Syntax limitation**: The `mode` parameter cannot be combined with a specific, non-wildcard dataset. For example, `search "login failure" mode=normalize dataset = xdr_data` returns an error. If you know the exact dataset, query it directly without the `mode` parameter.
+* **Optimized search volume**: The `raw` and `normalize` modes are optimal for 1 to 10 distinct terms, such as specific IPs or hostnames. For heavy workflows that span large tenants across all datasets, use the `all` mode.
+
+## Syntax examples
+
+The following tables summarize valid and invalid combinations of the `search` stage syntax.
+
+**Use cases**
+
+| Use case                                 | Example                                                            | Result                                                                                           |
+| ---------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| Basic default search                     | `search "login failure"`                                           | Automatically defaults to the raw mode and searches across wildcard tables                       |
+| Explicit mode definition                 | `search "login failure" mode=all`                                  | Forces the search across both raw and normalized datasets                                        |
+| Explicit mode with wildcard-only dataset | `search "login failure" mode=raw dataset = *`                      | Explicitly assigns the mode while searching all wildcard tables                                  |
+| Using modes with wildcard datasets       | `search "login failure" mode=normalize dataset = xdr_*`            | Explicitly scopes the normalized mode to datasets matching the wildcard                          |
+| Searching multiple wildcard datasets     | `search "login failure" mode=normalize dataset in (xdr_*, panw_*)` | Applies the performance mode across multiple wildcard dataset patterns                           |
+| Implicit mode assignment (wildcard)      | `search "login failure" dataset = xdr_*`                           | Because a wildcard is used without an explicit mode, this automatically defaults to the raw mode |
+| Specific dataset query (no mode needed)  | `search "login failure" dataset = xdr_data`                        | Directly queries a specific dataset. The mode parameter is intentionally left blank              |
+| Piping to additional filters             | `search "login failure" mode=raw \| filter agent_os = WINDOWS`     | Quickly searches raw datasets and filters the subsequent results                                 |
+
+**Invalid use cases**
+
+| Use case                                                 | Example                                                            | Result                                                                                             |
+| -------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| Mode combined with a specific dataset (invalid)          | `search "login failure" mode=normalize dataset = xdr_data`         | Returns an error: the mode parameter is not allowed when querying a specific, non-wildcard dataset |
+| Multiple modes provided (invalid)                        | `search "login failure" mode=raw mode=all`                         | Returns an error for a duplicate argument                                                          |
+| Mode combined with a list of specific datasets (invalid) | `search "login failure" mode=raw dataset in (xdr_data, panw_data)` | Returns an error: wildcards must be present in the dataset list when using a mode                  |
 
 ## Examples
 
@@ -52,9 +81,9 @@ search "login successful"
 
 **Output**:
 
-| _time                   | _dataset       | event_description       | raw_log_data                             |
-| ----------------------- | -------------- | ----------------------- | ---------------------------------------- |
-| 2023-10-26 10:00:00 UTC | sample_xql_raw | "User login successful" | "User Alice logged in from 192.168.1.10" |
+| \_time                  | \_dataset        | event\_description      | raw\_log\_data                           |
+| ----------------------- | ---------------- | ----------------------- | ---------------------------------------- |
+| 2023-10-26 10:00:00 UTC | sample\_xql\_raw | "User login successful" | "User Alice logged in from 192.168.1.10" |
 
 ### Example 2: Free-text search within a specific dataset
 
@@ -70,9 +99,9 @@ search "cmd.exe" dataset = sample_xql_raw
 
 **Output**:
 
-| _time                   | _dataset       | event_description     | raw_log_data                                      |
-| ----------------------- | -------------- | --------------------- | ------------------------------------------------- |
-| 2023-10-26 10:05:30 UTC | sample_xql_raw | "File access attempt" | "Process cmd.exe attempted to access /etc/passwd" |
+| \_time                  | \_dataset        | event\_description    | raw\_log\_data                                    |
+| ----------------------- | ---------------- | --------------------- | ------------------------------------------------- |
+| 2023-10-26 10:05:30 UTC | sample\_xql\_raw | "File access attempt" | "Process cmd.exe attempted to access /etc/passwd" |
 
 ### Example 3: Searching for multiple free-text strings
 
@@ -88,10 +117,10 @@ search "connection", "backup" dataset = sample_xql_raw
 
 **Output**:
 
-| _time                   | _dataset       | event_description                | raw_log_data                                           |
-| ----------------------- | -------------- | -------------------------------- | ------------------------------------------------------ |
-| 2023-10-26 10:15:15 UTC | sample_xql_raw | "Network connection established" | "Outbound connection to 1.1.1.1:443 initiated by AppX" |
-| 2023-10-26 11:00:10 UTC | sample_xql_raw | "Database backup completed"      | "Full backup of prod_db to S3 completed."              |
+| \_time                  | \_dataset        | event\_description               | raw\_log\_data                                         |
+| ----------------------- | ---------------- | -------------------------------- | ------------------------------------------------------ |
+| 2023-10-26 10:15:15 UTC | sample\_xql\_raw | "Network connection established" | "Outbound connection to 1.1.1.1:443 initiated by AppX" |
+| 2023-10-26 11:00:10 UTC | sample\_xql\_raw | "Database backup completed"      | "Full backup of prod\_db to S3 completed."             |
 
 ### Example 4: Using config timeframe with search
 
@@ -108,9 +137,45 @@ search "successful" dataset = sample_xql_raw
 
 **Output**:
 
-| _time                   | _dataset       | event_description       | is_successful |
-| ----------------------- | -------------- | ----------------------- | ------------- |
-| 2023-10-26 10:00:00 UTC | sample_xql_raw | "User login successful" | true          |
+| \_time                  | \_dataset        | event\_description      | is\_successful |
+| ----------------------- | ---------------- | ----------------------- | -------------- |
+| 2023-10-26 10:00:00 UTC | sample\_xql\_raw | "User login successful" | true           |
+
+### Example 5: Searching raw datasets using the Raw mode
+
+**Goal**: Searches for the phrase "login failure" across all columns in raw datasets.
+
+**XQL code**:
+
+```sql
+search "login failure" mode="raw"
+```
+
+**Explanation**: The `mode="raw"` parameter scopes the search to all columns in raw datasets. This is the default mode for general and wildcard searches.
+
+**Output**:
+
+| \_time                  | \_dataset        | event\_description   | raw\_log\_data                            |
+| ----------------------- | ---------------- | -------------------- | ----------------------------------------- |
+| 2023-10-26 10:20:00 UTC | sample\_xql\_raw | "User login failure" | "User Bob failed to log in from 10.0.0.5" |
+
+### Example 6: Restricting the search to normalized datasets using the Normalize mode
+
+**Goal**: Searches for the phrase "login failure" within normalized datasets only.
+
+**XQL code**:
+
+```sql
+search "login failure" mode="normalize"
+```
+
+**Explanation**: The `mode="normalize"` parameter restricts the search to normalized datasets (such as `xdr_data`). For maximum performance, this mode searches string columns only and explicitly bypasses enum fields.
+
+**Output**:
+
+| \_time                  | \_dataset | event\_description   | raw\_log\_data                            |
+| ----------------------- | --------- | -------------------- | ----------------------------------------- |
+| 2023-10-26 10:20:00 UTC | xdr\_data | "User login failure" | "User Bob failed to log in from 10.0.0.5" |
 
 ## Related articles
 

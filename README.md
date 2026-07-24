@@ -170,29 +170,29 @@ XQL queries are composed of **stages** connected in a pipeline, with **functions
 
 ## Stages
 
-| Stage                                         | Description |
-| --------------------------------------------- | ----------- |
-| [`alter`](readme/stages/alter.md)             |             |
-| [`arrayexpand`](readme/stages/arrayexpand.md) |             |
-| [`bin`](readme/stages/bin.md)                 |             |
-| [`call`](readme/stages/call.md)               |             |
-| [`comp`](readme/stages/comp.md)               |             |
-| [`config`](readme/stages/config.md)           |             |
-| [`dataset`](readme/stages/dataset.md)         |             |
-| [`dedup`](readme/stages/dedup.md)             |             |
-| [`fields`](readme/stages/fields.md)           |             |
-| [`filter`](readme/stages/filter.md)           |             |
-| [`iploc`](readme/stages/iploc.md)             |             |
-| [`join`](readme/stages/join.md)               |             |
-| [`limit`](readme/stages/limit.md)             |             |
-| [`presets`](readme/stages/presets.md)         |             |
-| [`replacenull`](readme/stages/replacenull.md) |             |
-| [`search`](readme/stages/search.md)           |             |
-| [`sort`](readme/stages/sort.md)               |             |
-| [`tag`](readme/stages/tag.md)                 |             |
-| [`target`](readme/stages/target.md)           |             |
-| [`top`](readme/stages/top.md)                 |             |
-| [`transaction`](readme/stages/transaction.md) |             |
-| [`union`](readme/stages/union.md)             |             |
-| [`view`](readme/stages/view.md)               |             |
-| [`windowcomp`](readme/stages/windowcomp.md)   |             |
+| Stage                                          | Description |
+| ---------------------------------------------- | ----------- |
+| [`alter`](readme/stages/alter.md)              |             |
+| [`arrayexpand`](readme/stages/arrayexpand.md)  |             |
+| [`bin`](readme/stages/bin.md)                  |             |
+| [`call`](readme/stages/call.md)                |             |
+| [`comp`](readme/stages/comp.md)                |             |
+| [`config`](readme/stages/config.md)            |             |
+| [`dataset`](readme/stages/dataset.md)          |             |
+| [`dedup`](readme/stages/dedup.md)              |             |
+| [`fields`](readme/stages/fields.md)            |             |
+| [`filter`](readme/stages/filter.md)            |             |
+| [`iploc`](readme/stages/iploc.md)              |             |
+| [`join`](readme/stages/join.md)                |             |
+| [`limit`](readme/stages/limit.md)              |             |
+| [`presets`](readme/stages/presets.md)          |             |
+| [`replacenull`](readme/stages/replacenull.md)  |             |
+| [`search`](/broken/pages/IgFVkMwRDVqsKrJVWpPI) |             |
+| [`sort`](readme/stages/sort.md)                |             |
+| [`tag`](readme/stages/tag.md)                  |             |
+| [`target`](readme/stages/target.md)            |             |
+| [`top`](readme/stages/top.md)                  |             |
+| [`transaction`](readme/stages/transaction.md)  |             |
+| [`union`](readme/stages/union.md)              |             |
+| [`view`](readme/stages/view.md)                |             |
+| [`windowcomp`](readme/stages/windowcomp.md)    |             |
